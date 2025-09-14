@@ -1,0 +1,209 @@
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums (데이터 무결성 보장)
+
+enum SessionStatus {
+  ACTIVE    // 진행 중
+  PAUSED    // 일시정지
+  COMPLETED // 정상 완료
+  CANCELLED // 취소됨
+}
+
+enum PlanStatus {
+  DRAFT     // 초안
+  ACTIVE    // 진행 중
+  COMPLETED // 완료
+  CANCELLED // 취소
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// 사용자 관리 (Firebase 연동)
+
+
+model User {
+  id           String   @id @default(cuid())
+  
+  // Firebase Authentication 연동 필드
+  firebaseUid  String   @unique @map("firebase_uid") @db.VarChar(128)
+  email        String   @unique @db.VarChar(255)
+  nickname     String   @db.VarChar(50)
+  displayName  String?  @map("display_name") @db.VarChar(100)
+  profileImage String?  @map("profile_image") @db.Text
+  emailVerified Boolean @default(false) @map("email_verified")
+  
+  // 추가 프로필 정보
+  bio          String?  @db.Text
+  timezone     String   @default("Asia/Seoul") @db.VarChar(50)
+  
+  // 메타데이터
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  // 관계 정의
+  subjects       Subject[]
+  studySessions  StudySession[]
+  studyPlans     StudyPlan[]
+  dailySummaries DailySummary[]
+
+  @@map("users")
+  @@index([firebaseUid], name: "idx_users_firebase_uid")
+  @@index([email], name: "idx_users_email")
+}
+
+// 과목/카테고리 관리
+
+model Subject {
+  id          String  @id @default(cuid())
+  name        String  @db.VarChar(100)
+  color       String  @default("#3B82F6") @db.VarChar(7) // Hex color
+  icon        String? @db.VarChar(10) // 이모지 또는 아이콘 코드
+  description String? @db.Text
+  
+  // 소유자 관계
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 관계
+  studySessions StudySession[]
+  planTasks     PlanTask[]
+
+  @@map("subjects")
+  @@index([userId], name: "idx_subjects_user_id")
+  @@unique([userId, name], name: "unique_user_subject_name") // 사용자별 과목명 중복 방지
+}
+
+
+// 공부 세션 (타이머 기록)
+
+model StudySession {
+  id        String   @id @default(cuid())
+  
+  // 시간 기록
+  startTime DateTime @default(now()) @map("start_time")
+  endTime   DateTime? @map("end_time") // null이면 진행 중
+  duration  Int?     @db.Integer // 총 공부 시간 (초 단위)
+  
+  // 세션 상태 및 메타데이터
+  status    SessionStatus @default(ACTIVE)
+  notes     String?       @db.Text
+  
+  // 관계
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  subjectId String @map("subject_id")
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("study_sessions")
+  @@index([userId, createdAt(sort: Desc)], name: "idx_study_sessions_user_date")
+  @@index([userId, status], name: "idx_study_sessions_user_status")
+  @@index([subjectId], name: "idx_study_sessions_subject")
+}
+
+
+// 학습 계획 관리
+
+model StudyPlan {
+  id          String    @id @default(cuid())
+  title       String    @db.VarChar(200)
+  description String?   @db.Text
+  
+  // 계획 기간
+  startDate   DateTime  @map("start_date") @db.Date
+  endDate     DateTime  @map("end_date") @db.Date
+  
+  // 상태 관리
+  status      PlanStatus @default(ACTIVE)
+  isCompleted Boolean   @default(false) @map("is_completed")
+  
+  // 관계
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // 하위 과업들
+  tasks PlanTask[]
+
+  @@map("study_plans")
+  @@index([userId, startDate], name: "idx_study_plans_user_date")
+  @@index([userId, status], name: "idx_study_plans_user_status")
+}
+
+// 계획 세부 과업
+
+model PlanTask {
+  id          String  @id @default(cuid())
+  title       String  @db.VarChar(200)
+  description String? @db.Text
+  
+  // 완료 상태
+  isCompleted Boolean   @default(false) @map("is_completed")
+  
+  // 순서 및 우선순위
+  order       Int @default(0) @db.Integer
+  priority    TaskPriority @default(MEDIUM)
+  
+  // 관계
+  planId String    @map("plan_id")
+  plan   StudyPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  
+  subjectId String  @map("subject_id")
+  subject   Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("plan_tasks")
+  @@index([planId, order], name: "idx_plan_tasks_plan_order")
+  @@index([subjectId], name: "idx_plan_tasks_subject")
+}
+
+
+// 일일 학습 요약
+
+model DailySummary {
+  id           String   @id @default(cuid())
+  date         DateTime @db.Date
+  
+  // 자동 계산되는 통계
+  totalMinutes    Int @default(0) @map("total_minutes") @db.Integer
+  sessionCount    Int @default(0) @map("session_count") @db.Integer
+  
+  // 사용자 입력 회고
+  reflection      String? @db.Text
+  mood            Int?    @db.SmallInt // 1-5점
+  
+  // 관계
+  userId String @map("user_id")
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("daily_summaries")
+  @@unique([userId, date], name: "unique_user_daily_summary")
+  @@index([userId, date(sort: Desc)], name: "idx_daily_summaries_user_date")
+}
