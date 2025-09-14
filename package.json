@@ -8,7 +8,19 @@
     "dev": "nodemon src/server.ts",
     "lint": "eslint src/**/*.ts",
     "lint:fix": "eslint src/**/*.ts --fix",
-    "format": "prettier --write src/**/*.ts"
+    "format": "prettier --write src/**/*.ts",
+    "db:setup": "docker-compose up -d postgres && sleep 5 && npx prisma migrate dev --name firebase_auth_integration && npm run db:seed",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "npx prisma migrate reset --force && npm run db:seed",
+    "db:studio": "npx prisma studio",
+    "db:migrate": "npx prisma migrate dev",
+    "db:generate": "npx prisma generate",
+    "db:push": "npx prisma db push",
+    "db:status": "npx prisma migrate status",
+    
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f postgres"    
   },
   "keywords": [
     "study",
@@ -21,14 +33,14 @@
   "description": "",
   "dependencies": {
     "@prisma/client": "^6.14.0",
+    "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.2",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
-    "morgan": "^1.10.1",
-    "prisma": "^6.14.0"
+    "morgan": "^1.10.1"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
@@ -42,6 +54,7 @@
     "eslint": "^9.33.0",
     "nodemon": "^3.1.10",
     "prettier": "^3.6.2",
+    "prisma": "^6.16.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }
