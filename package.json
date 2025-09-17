@@ -17,10 +17,9 @@
     "db:generate": "npx prisma generate",
     "db:push": "npx prisma db push",
     "db:status": "npx prisma migrate status",
-    
     "docker:up": "docker-compose up -d",
     "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f postgres"    
+    "docker:logs": "docker-compose logs -f postgres"
   },
   "keywords": [
     "study",

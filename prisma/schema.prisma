@@ -10,6 +10,12 @@ datasource db {
 
 // Enums (데이터 무결성 보장)
 
+enum OAuthProvider{
+  GOOGLE
+  APPLE
+  FACEBOOK
+}
+
 enum SessionStatus {
   ACTIVE    // 진행 중
   PAUSED    // 일시정지
@@ -37,8 +43,7 @@ enum TaskPriority {
 model User {
   id           String   @id @default(cuid())
   
-  // Firebase Authentication 연동 필드
-  firebaseUid  String   @unique @map("firebase_uid") @db.VarChar(128)
+  // 핵심 사용자 정보
   email        String   @unique @db.VarChar(255)
   nickname     String   @db.VarChar(50)
   displayName  String?  @map("display_name") @db.VarChar(100)
@@ -54,6 +59,9 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
+  // OAuth 계정 연결(1:N 관계 - 한 사용자가 여러 Provider 연결 가능)
+  oauthAccounts OAuthAccount[]
+
   // 관계 정의
   subjects       Subject[]
   studySessions  StudySession[]
@@ -61,12 +69,34 @@ model User {
   dailySummaries DailySummary[]
 
   @@map("users")
-  @@index([firebaseUid], name: "idx_users_firebase_uid")
   @@index([email], name: "idx_users_email")
 }
 
-// 과목/카테고리 관리
+// OAuth 걔정 연결 정보
+model OAuthAccount{
+  id      String      @id @default(cuid())
 
+  // OAuth 제공자 정보
+  provider  OAuthProvider
+  providerId  String   @map("provider_id")@db.VarChar(100) // Provider의 고유 사용자 ID
+
+  // 제공자별 추가 정보(JSON으로 유연하게 저장)
+  // 예: Google의 경우 {sub, name, email, picture, email_verified}
+  providerData  Json?  @map("provider_data")
+
+  // 사용자 관계
+  userId String @map("user_id")
+  user  User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@map("oauth_accounts")
+  @@unique([provider, providerId], name: "unique_provider_account")// Provider별 계정 중복 방지
+  @@index([userId], name: "idx_oauth_accounts_user")
+}
+
+// 과목/카테고리 관리
 model Subject {
   id          String  @id @default(cuid())
   name        String  @db.VarChar(100)
