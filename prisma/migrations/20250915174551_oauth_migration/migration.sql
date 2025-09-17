@@ -1,4 +1,7 @@
 -- CreateEnum
+CREATE TYPE "public"."OAuthProvider" AS ENUM ('GOOGLE', 'APPLE', 'FACEBOOK');
+
+-- CreateEnum
 CREATE TYPE "public"."SessionStatus" AS ENUM ('ACTIVE', 'PAUSED', 'COMPLETED', 'CANCELLED');
 
 -- CreateEnum
@@ -10,7 +13,6 @@ CREATE TYPE "public"."TaskPriority" AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'URGENT');
 -- CreateTable
 CREATE TABLE "public"."users" (
     "id" TEXT NOT NULL,
-    "firebase_uid" VARCHAR(128) NOT NULL,
     "email" VARCHAR(255) NOT NULL,
     "nickname" VARCHAR(50) NOT NULL,
     "display_name" VARCHAR(100),
@@ -23,6 +25,19 @@ CREATE TABLE "public"."users" (
     "updated_at" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "users_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "public"."oauth_accounts" (
+    "id" TEXT NOT NULL,
+    "provider" "public"."OAuthProvider" NOT NULL,
+    "provider_id" VARCHAR(100) NOT NULL,
+    "provider_data" JSONB,
+    "user_id" TEXT NOT NULL,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "oauth_accounts_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -103,16 +118,16 @@ CREATE TABLE "public"."daily_summaries" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "users_firebase_uid_key" ON "public"."users"("firebase_uid");
-
--- CreateIndex
 CREATE UNIQUE INDEX "users_email_key" ON "public"."users"("email");
 
 -- CreateIndex
-CREATE INDEX "idx_users_firebase_uid" ON "public"."users"("firebase_uid");
+CREATE INDEX "idx_users_email" ON "public"."users"("email");
 
 -- CreateIndex
-CREATE INDEX "idx_users_email" ON "public"."users"("email");
+CREATE INDEX "idx_oauth_accounts_user" ON "public"."oauth_accounts"("user_id");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "oauth_accounts_provider_provider_id_key" ON "public"."oauth_accounts"("provider", "provider_id");
 
 -- CreateIndex
 CREATE INDEX "idx_subjects_user_id" ON "public"."subjects"("user_id");
@@ -146,6 +161,9 @@ CREATE INDEX "idx_daily_summaries_user_date" ON "public"."daily_summaries"("user
 
 -- CreateIndex
 CREATE UNIQUE INDEX "daily_summaries_user_id_date_key" ON "public"."daily_summaries"("user_id", "date");
+
+-- AddForeignKey
+ALTER TABLE "public"."oauth_accounts" ADD CONSTRAINT "oauth_accounts_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "public"."subjects" ADD CONSTRAINT "subjects_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE CASCADE ON UPDATE CASCADE;

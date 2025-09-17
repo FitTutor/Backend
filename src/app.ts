@@ -30,6 +30,7 @@ app.use(express.urlencoded({extended: true}))
 // 라우터 연결
 app.use('/', healthRouter)
 
+
 // 404 핸들러 
 app.use((req, res) => {
     res.status(404).json({
