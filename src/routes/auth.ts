@@ -3,9 +3,8 @@ import express from 'express';
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import { prisma } from '../lib/prisma';
-import { generateAccessToken, generateRefreshToken } from '../lib/jwt';
-import { dmmfToRuntimeDataModel } from '@prisma/client/runtime/library';
-import { error } from 'console';
+import { generateAccessToken, generateRefreshToken, verifyAccessToken } from '../lib/jwt';
+import { authenticateToken, AuthenticatedRequest } from '../middleware/auth';
 
 const router = express.Router();
 
@@ -25,27 +24,25 @@ passport.use(new GoogleStrategy({
 
         // OAuthAccount 조회
         let oauthAccount = await prisma.oAuthAccount.findUnique({
-            where:{
-                unique_provider_account:{
+            where: {
+                unique_provider_account: {
                     provider: 'GOOGLE',
                     providerId: id
                 }
             },
-            include: {user: true}
+            include: { user: true }
         });
 
-        if(oauthAccount){
-            // 기존 사용자 로그인
+        if (oauthAccount) {
             return done(null, oauthAccount.user);
         }
 
         // 이메일로 기존 사용자 찾기
         let user = await prisma.user.findUnique({
-            where: {email}
+            where: { email }
         });
 
-        if(!user){
-            // 새 사용자 찾기
+        if (!user) {
             user = await prisma.user.create({
                 data: {
                     email,
@@ -74,22 +71,22 @@ passport.use(new GoogleStrategy({
         });
 
         return done(null, user);
-    }catch(error){
+    } catch (error) {
         return done(error, undefined);
     }
 }));
 
 
-// PassPort 직렬화 설정
-passport.serializeUser((user: any, done) =>{
+// Passport 직렬화 설정
+passport.serializeUser((user: any, done) => {
     done(null, user.id);
 });
 
 passport.deserializeUser(async (id: string, done) => {
-    try{
-        const user = await prisma.user.findUnique({where: {id}});
+    try {
+        const user = await prisma.user.findUnique({ where: { id } });
         done(null, user);
-    }catch(error){
+    } catch (error) {
         done(error, null);
     }
 });
@@ -101,9 +98,9 @@ router.get('/google', passport.authenticate('google', {
 
 // Google OAuth 콜백
 router.get('/google/callback', 
-    passport.authenticate('google', {failureRedirect: '/login'}),
+    passport.authenticate('google', { failureRedirect: '/login' }),
     async (req: any, res) => {
-        try{
+        try {
             const user = req.user;
 
             // JWT 토큰 생성
@@ -117,10 +114,10 @@ router.get('/google/callback',
                 email: user.email
             });
 
-            // lastloginAt 업데이트
+            // lastLoginAt 업데이트
             await prisma.user.update({
-                where: {id: user.id},
-                data: {lastLoginAt: new Date()}
+                where: { id: user.id },
+                data: { lastLoginAt: new Date() }
             });
 
             // 쿠키에 토큰 설정
@@ -140,7 +137,7 @@ router.get('/google/callback',
 
             // 프론트엔드로 리다이렉트
             res.redirect(`${process.env.FRONTEND_URL}/dashboard`);
-        }catch(error){
+        } catch (error) {
             console.error('OAuth callback error:', error);
             res.redirect(`${process.env.FRONTEND_URL}/login?error=oauth_failed`);
         }
@@ -149,18 +146,17 @@ router.get('/google/callback',
 
 // 현재 사용자 정보 조회
 router.get('/me', async (req, res) => {
-    try{
+    try {
         const token = req.cookies.accessToken || req.headers.authorization?.replace('Bearer ', '');
 
-        if(!token){
-            return res.status(401).json({error: 'No token provided'});
+        if (!token) {
+            return res.status(401).json({ error: 'No token provided' });
         }
 
-        const {verifyAccessToken} = await import('../lib/jwt');
         const payload = verifyAccessToken(token);
 
         const user = await prisma.user.findUnique({
-            where: {id: payload.userId},
+            where: { id: payload.userId },
             select: {
                 id: true,
                 email: true,
@@ -173,12 +169,12 @@ router.get('/me', async (req, res) => {
             }
         });
 
-        if(!user){
-            return res.status(404).json({error: 'User not found'});
+        if (!user) {
+            return res.status(404).json({ error: 'User not found' });
         }
 
-        res.json({user});
-    }catch(error){
+        res.json({ user });
+    } catch (error) {
         console.error('Get user error:', error);
         res.status(401).json({ error: 'Invalid token' });
     }
@@ -186,35 +182,34 @@ router.get('/me', async (req, res) => {
 
 // 토큰 갱신
 router.post('/refresh', async (req, res) => {
-    try{
+    try {
         const refreshToken = req.cookies.refreshToken;
 
-        if(!refreshToken){
-            return res.status(401).json({error: "No refresh token provided"});
+        if (!refreshToken) {
+            return res.status(401).json({ error: "No refresh token provided" });
         }
 
-        const {verifyAccessToken, generateAccessToken} = await import('../lib/jwt');
         const payload = verifyAccessToken(refreshToken);
 
         const user = await prisma.user.findUnique({
-            where: {id: payload.userId}
+            where: { id: payload.userId }
         });
 
         if (!user) {
-        return res.status(404).json({ error: 'User not found' });
+            return res.status(404).json({ error: 'User not found' });
         }
 
         // 새 액세스 토큰 생성
         const newAccessToken = generateAccessToken({
-        userId: user.id,
-        email: user.email
+            userId: user.id,
+            email: user.email
         });
 
         res.cookie('accessToken', newAccessToken, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 15 * 60 * 1000 // 15분
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 15 * 60 * 1000 // 15분
         });
 
         res.json({ success: true });
@@ -226,9 +221,9 @@ router.post('/refresh', async (req, res) => {
 
 // 로그아웃
 router.post('/logout', (req, res) => {
-  res.clearCookie('accessToken');
-  res.clearCookie('refreshToken');
-  res.json({ success: true });
+    res.clearCookie('accessToken');
+    res.clearCookie('refreshToken');
+    res.json({ success: true });
 });
 
 export default router;
