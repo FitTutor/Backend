@@ -13,7 +13,7 @@ datasource db {
 enum OAuthProvider{
   GOOGLE
   APPLE
-  FACEBOOK
+  KAKAO
 }
 
 enum SessionStatus {
