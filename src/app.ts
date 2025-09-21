@@ -12,11 +12,16 @@ import { connectDatabase } from './lib/prisma'
 
 // 라우터 import
 import healthRouter from './routes/health'
+import cookieParser from 'cookie-parser';
+import passport from 'passport';
+import authRouter from './routes/auth';
 
 const app = express()
 
 // 미들웨어 설정
 app.use(helmet());
+app.use(cookieParser()); // 쿠키 파서 추가
+app.use(passport.initialize()); // Passport 초기화
 app.use(cors({
     origin: process.env.FRONTEND_URL || 'http://localhost:3000',
     credentials: true,
@@ -29,7 +34,7 @@ app.use(express.urlencoded({extended: true}))
 
 // 라우터 연결
 app.use('/', healthRouter)
-
+app.use('/api/auth', authRouter)
 
 // 404 핸들러 
 app.use((req, res) => {
