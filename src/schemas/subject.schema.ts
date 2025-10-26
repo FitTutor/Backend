@@ -43,6 +43,6 @@ export const subjectQuerySchema = z.object({
 })
 
 export type CreateSubjectInput = z.infer<typeof createSubjectSchema>
-export type UpdateSubjectSchema = z.infer<typeof updateSubjectSchema>
+export type UpdateSubjectInput = z.infer<typeof updateSubjectSchema>
 export type SubjectParams = z.infer<typeof subjectParamsSchema>
 export type SubjectQuery = z.infer<typeof subjectQuerySchema>
