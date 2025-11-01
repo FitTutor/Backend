@@ -219,6 +219,42 @@ router.post('/refresh', async (req, res) => {
     }
 });
 
+// 토큰 조회 (개발/테스트용)
+router.get('/tokens', async (req, res) => {
+    try {
+        const accessToken = req.cookies.accessToken || req.headers.authorization?.replace('Bearer ', '');
+        const refreshToken = req.cookies.refreshToken;
+
+        if (!accessToken && !refreshToken) {
+            return res.status(401).json({ 
+                error: 'No tokens found',
+                message: '토큰이 없습니다. 로그인이 필요합니다.'
+            });
+        }
+
+        // 개발 환경에서만 토큰 값을 반환
+        if (process.env.NODE_ENV === 'development') {
+            return res.json({
+                success: true,
+                accessToken: accessToken || null,
+                refreshToken: refreshToken || null,
+                hasAccessToken: !!accessToken,
+                hasRefreshToken: !!refreshToken
+            });
+        }
+
+        // 프로덕션에서는 토큰 존재 여부만 반환
+        return res.json({
+            success: true,
+            hasAccessToken: !!accessToken,
+            hasRefreshToken: !!refreshToken
+        });
+    } catch (error) {
+        console.error('Token retrieval error:', error);
+        res.status(500).json({ error: 'Failed to retrieve tokens' });
+    }
+});
+
 // 로그아웃
 router.post('/logout', (req, res) => {
     res.clearCookie('accessToken');
