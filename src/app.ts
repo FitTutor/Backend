@@ -13,9 +13,13 @@ dotenv.config();
 // 데이터베이스 연결
 import { connectDatabase } from './lib/prisma';
 
+// 에러 핸들러
+import { errorHandler } from './middleware/error-handler';
+
 // 라우터 import
 import healthRouter from './routes/health';
 import authRouter from './routes/auth';
+import subjectRouter from './routes/subject';
 
 const app = express()
 
@@ -50,6 +54,7 @@ app.use(express.urlencoded({extended: true}))
 // 라우터 연결
 app.use('/', healthRouter)
 app.use('/api/auth', authRouter)
+app.use('/', subjectRouter)
 
 // 기본 라우트들
 app.get('/', (req, res) => {
@@ -80,13 +85,7 @@ app.use((req, res) => {
 });
 
 // 전역 예외 핸들러
-app.use((error: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-    console.error('Unhandled error:', error);
-    res.status(500).json({
-        error: 'Internal Server Error',
-        message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
-    });
-});
+app.use(errorHandler as any);
 
 const PORT = process.env.PORT || 3000;
 

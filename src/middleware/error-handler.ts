@@ -11,7 +11,7 @@ export function errorHandler(
         message: error.message,
         url: req.url,
         method: req.method,
-        userId: (req as any).user?.id
+        userId: (req as any).user?.userId
     })
 
     // Zod 검증 오류
@@ -27,7 +27,7 @@ export function errorHandler(
     }
 
     // 비즈니스 로직 오류
-    if(error.message === 'SUBJECT_NOT FOUND'){
+    if(error.message === 'SUBJECT_NOT_FOUND'){
         return res.status(404).json({
             error: 'Subject Not Found',
             message: '요청한 과목을 찾을 수 없습니다'

@@ -2,8 +2,6 @@ import { Router } from "express";
 import { authenticateToken } from "../middleware/auth";
 import { createSubjectSchema, subjectParamsSchema, subjectQuerySchema, updateSubjectSchema } from "../schemas/subject.schema";
 import { SubjectService } from "../services/subject.service";
-import { success } from "zod";
-import { errorHandler } from "../middleware/error-handler";
 
 const router = Router()
 
@@ -11,7 +9,7 @@ const router = Router()
 router.use(authenticateToken as any)
 
 // 과목 목록 조회(GET/subjects)
-router.get('/', async(req, res, next) => {
+router.get('/subjects', async(req, res, next) => {
     try{
         const query = subjectQuerySchema.parse(req.query)
         const result = await SubjectService.getSubjectsByUserId((req as any).user!.userId, query)
@@ -27,10 +25,10 @@ router.get('/', async(req, res, next) => {
 })
 
 // 과목 생성(POST/subjects)
-router.post('/', async (req, res, next) => {
+router.post('/subjects', async (req, res, next) => {
     try{
         const data = createSubjectSchema.parse(req.body)
-        const subject = await SubjectService.createSubject((req as any).user!.id, data)
+        const subject = await SubjectService.createSubject((req as any).user!.userId, data)
 
         res.status(201).json({
             success: true,
@@ -43,10 +41,10 @@ router.post('/', async (req, res, next) => {
 })
 
 // 특정 과목 조회(GET/subjects/:id)
-router.get('/:id', async(req, res, next) => {
+router.get('/subjects/:id', async(req, res, next) => {
     try{
         const {id} = subjectParamsSchema.parse(req.params)
-        const subject = await SubjectService.getSubjectById(id, (req as any).user!.id)
+        const subject = await SubjectService.getSubjectById(id, (req as any).user!.userId)
 
         res.json({
             success: true,
@@ -58,7 +56,7 @@ router.get('/:id', async(req, res, next) => {
 })
 
 // 과목 수정(PATCH/subjects/:id)
-router.patch('/:id', async (req, res, next) => {
+router.patch('/subjects/:id', async (req, res, next) => {
     try{
         const {id} = subjectParamsSchema.parse(req.params)
         const data = updateSubjectSchema.parse(req.body)
@@ -70,7 +68,7 @@ router.patch('/:id', async (req, res, next) => {
             })
         }
 
-        const subject = await SubjectService.updateSubject(id, (req as any).user!.id, data)
+        const subject = await SubjectService.updateSubject(id, (req as any).user!.userId, data)
 
         res.json({
             success: true,
@@ -83,10 +81,10 @@ router.patch('/:id', async (req, res, next) => {
 })
 
 // 과목 삭제(DELETE/subjects/:id)
-router.delete('/:id', async (req, res, next) => {
+router.delete('/subjects/:id', async (req, res, next) => {
     try{
         const {id} =  subjectParamsSchema.parse(req.params)
-        const result = await SubjectService.deleteSubject(id, (req as any).user!.id)
+        const result = await SubjectService.deleteSubject(id, (req as any).user!.userId)
 
         let message = "과목이 성공적으로 삭제되었습니다"
         if(result.deletedRelatedData.studySessions > 0 || result.deletedRelatedData.planTasks > 0){
@@ -102,8 +100,5 @@ router.delete('/:id', async (req, res, next) => {
         next(error)
     }
 })
-
-// 에러 핸들링 미들웨어 적용
-router.use(errorHandler)
 
 export default router
